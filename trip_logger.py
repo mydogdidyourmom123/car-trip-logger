@@ -32,6 +32,7 @@ with open(trip_path, 'w', newline='') as csvfile:
         exit(1)
 
     print("Logger started, waiting for GPS fix...")
+    gps_locked = False  # flag to check if we have a valid fix
 
     while True:
         line = ser.readline().decode('ascii', errors='replace').strip()
@@ -40,6 +41,16 @@ with open(trip_path, 'w', newline='') as csvfile:
 
         try:
             msg = pynmea2.parse(line)
+
+            # --- Check GPS fix ---
+            if not gps_locked:
+                if hasattr(msg, 'gps_qual') and int(msg.gps_qual) > 0:
+                    gps_locked = True
+                    print("GPS locked! Starting logging...")
+                else:
+                    continue  # skip logging until we have a fix
+
+            # --- Log data after lock ---
             if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
                 lat = msg.latitude
                 lon = msg.longitude
@@ -54,9 +65,8 @@ with open(trip_path, 'w', newline='') as csvfile:
                     "Altitude": alt,
                     "Speed": speed
                 })
-                csvfile.flush()  # make sure data is saved
+                csvfile.flush()
                 print(f"{timestamp}: {lat}, {lon}, Alt:{alt}, Spd:{speed}")
 
         except pynmea2.ParseError:
             continue
-
