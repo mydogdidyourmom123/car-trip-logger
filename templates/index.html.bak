@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trip Logger Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        #map { height: 600px; width: 100%; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        select, button { font-size: 16px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Trip Logger Map</h1>
+
+    <label for="tripSelect">Select a trip:</label>
+    <select id="tripSelect">
+        <option value="">--Choose a trip--</option>
+        {% for trip in trips %}
+        <option value="{{ loop.index0 }}">{{ trip.name }}</option>
+        {% endfor %}
+    </select>
+    <button id="loadTripBtn">Load Trip</button>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Trips variable comes from Flask
+        var trips = {{ trips|tojson }};
+
+        var map = L.map('map').setView([33.5207, -86.8025], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        var tripLayer; // current trip line layer
+
+        function showTrip(index) {
+            if(index === "" || index === null) return;
+
+            var trip = trips[index];
+
+            // Clear previous trip
+            if(tripLayer) {
+                map.removeLayer(tripLayer);
+            }
+
+            var points = [];
+            trip.coords.forEach(function(pt, i) {
+                var lat = pt.Latitude;
+                var lon = pt.Longitude;
+                var time = pt.Timestamp;
+                var speed = pt.Speed;
+
+                points.push([lat, lon]);
+
+                var markerColor = 'blue';
+                if(i === 0) markerColor = 'green';       // start
+                if(i === trip.coords.length - 1) markerColor = 'red'; // end
+
+                L.circleMarker([lat, lon], {color: markerColor, radius: 5})
+                    .bindPopup(`Time: ${time}<br>Speed: ${speed}`)
+                    .addTo(map);
+            });
+
+            tripLayer = L.polyline(points, {color: 'purple'}).addTo(map);
+            map.fitBounds(tripLayer.getBounds());
+        }
+
+        document.getElementById('loadTripBtn').addEventListener('click', function() {
+            var selectedIndex = document.getElementById('tripSelect').value;
+            showTrip(selectedIndex);
+        });
+    </script>
+</body>
+</html>
